@@ -1,15 +1,22 @@
+# Создадим черный список для невалидных токенов
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from app.auth.auth import hash_password, verify_password, create_access_token
-from app.auth.schemas import UserCreate, UserResponse, Token
+from app.auth.utils import hash_password, verify_password, create_access_token
+from app.auth.schemas import RegisterForm, UserResponse, Token
+from app.auth.utils import decode_access_token
+from app.auth.constants import oauth2_scheme
+
 
 # Имитация базы данных
+
+
 fake_users_db = []
 auth_router = APIRouter()
 
 
 @auth_router.post("/register", response_model=UserResponse)
-def register(user: UserCreate):
+def register(user: RegisterForm):
     # Проверка на уникальность email
     if any(u["email"] == user.email for u in fake_users_db):
         raise HTTPException(status_code=400, detail="Такая почта уже существует")
@@ -31,3 +38,16 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
     # Создание токена
     access_token = create_access_token(data={"sub": user["email"]})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@auth_router.post("/logout")
+def logout(token: str = Depends(oauth2_scheme)):
+    # Добавляем токен в чёрный список, чтобы он больше не мог быть использован
+    # redis_client.setex(token, 3600, "invalid")  # Чёрный список на 1 час (можно настроить время хранения)
+    return {"message": "Successfully logged out"}
+
+
+# Пример того что без токена, данная ручка не доступна
+@auth_router.get("/protected-route")
+def protected_route(user_id: str = Depends(decode_access_token)):
+    return {"message": f"Hello, user {user_id}!"}
