@@ -1,5 +1,6 @@
 import re
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator, EmailStr
+from typing import Optional
 
 
 class UserBase(BaseModel):
@@ -20,23 +21,25 @@ class Token(BaseModel):
 
 
 class RegisterForm(BaseModel):
-    username: str
+    name: str
+    lastname: str
+    username: str = Field(..., min_length=3, max_length=30)
     password: str = Field(..., min_length=8)
+    confirm_password: str = Field(..., min_length=8)
+    email: EmailStr
+    phone: Optional[str]
 
     @model_validator(mode='before')
-    def validate_password(cls, values):
-        password = values.get('password')
+    def check_passwords_match(cls, data):
+        if data['password'] != data['confirm_password']:
+            raise ValueError('Пароли не совпадают')
 
-        # Проверка на наличие хотя бы одной цифры
-        if not re.search(r'\d', password):
-            raise ValueError('Password must contain at least one digit')
+        if not re.search(r'\d', data['password']):
+            raise ValueError('Пароль должен содержать хотя бы одну цифру')
 
-        # Проверка на наличие хотя бы одной заглавной буквы
-        if not re.search(r'[A-Z]', password):
-            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[A-Z]', data['password']):
+            raise ValueError('Пароль должен содержать хотя бы одну заглавную букву')
 
-        # Проверка на наличие хотя бы одного символа
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-            raise ValueError('Password must contain at least one special character !@#$%^&*(),.?":{}|<>')
-
-        return values
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', data['password']):
+            raise ValueError('Пароль должен содержать хотя бы один специальный символ')
+        return data

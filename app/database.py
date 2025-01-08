@@ -18,7 +18,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 # Функция для получения текущей сессии
-def get_db():
+def get_session():
     db = SessionLocal()
     try:
         yield db

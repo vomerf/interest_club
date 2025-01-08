@@ -6,26 +6,32 @@ from app.auth.utils import hash_password, verify_password, create_access_token
 from app.auth.schemas import RegisterForm, UserResponse, Token
 from app.auth.utils import decode_access_token
 from app.auth.constants import oauth2_scheme
+from app.database import get_session
+from sqlalchemy.orm import Session
+from app.auth.models import User
 
 
-# Имитация базы данных
-
-
-fake_users_db = []
 auth_router = APIRouter()
 
 
 @auth_router.post("/register", response_model=UserResponse)
-def register(user: RegisterForm):
-    # Проверка на уникальность email
-    if any(u["email"] == user.email for u in fake_users_db):
+def register(user: RegisterForm, session_db: Session = Depends(get_session)):
+    """Регистрация новых пользователей."""
+    if session_db.query(User).filter(User.email == user.email).first():
         raise HTTPException(status_code=400, detail="Такая почта уже существует")
 
-    # Хеширование пароля
     hashed_password = hash_password(user.password)
-    user_dict = {"id": len(fake_users_db) + 1, "email": user.email, "password": hashed_password}
-    fake_users_db.append(user_dict)
-    return {"id": user_dict["id"], "email": user_dict["email"]}
+    new_user = User(
+        name=user.name,
+        lastname=user.lastname,
+        email=user.email,
+        password=hashed_password,
+        phone=user.phone
+    )
+    session_db.add(new_user)
+    session_db.commit()
+    session_db.refresh(new_user)
+    return {"id": new_user.id, "email": new_user.email}
 
 
 @auth_router.post("/login", response_model=Token)

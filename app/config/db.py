@@ -6,7 +6,7 @@ class DatabaseSettings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
-    DB_PORT: int = 5555
+    DB_PORT: int = 5433
     DB_HOST: str = "localhost"
 
     @computed_field
