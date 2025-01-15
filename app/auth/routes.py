@@ -15,7 +15,7 @@ auth_router = APIRouter()
 
 
 @auth_router.post("/register", response_model=UserResponse)
-def register(user: RegisterForm, session_db: Session = Depends(get_session)):
+async def register(user: RegisterForm, session_db: Session = Depends(get_session)):
     """Регистрация новых пользователей."""
     if session_db.query(User).filter(User.email == user.email).first():
         raise HTTPException(status_code=400, detail="Такая почта уже существует")
@@ -35,10 +35,11 @@ def register(user: RegisterForm, session_db: Session = Depends(get_session)):
 
 
 @auth_router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), session_db: Session = Depends(get_session)):
     # Поиск пользователя по email
-    user = next((u for u in fake_users_db if u["email"] == form_data.username), None)
-    if not user or not verify_password(form_data.password, user["password"]):
+    if not (user := session_db.query(User).filter(User.username == form_data.username).first()):
+        raise HTTPException(status_code=400, detail=f"Нет пользователя с таким username={form_data.username}")
+    if not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Создание токена
@@ -47,7 +48,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @auth_router.post("/logout")
-def logout(token: str = Depends(oauth2_scheme)):
+async def logout(token: str = Depends(oauth2_scheme)):
     # Добавляем токен в чёрный список, чтобы он больше не мог быть использован
     # redis_client.setex(token, 3600, "invalid")  # Чёрный список на 1 час (можно настроить время хранения)
     return {"message": "Successfully logged out"}
@@ -55,5 +56,5 @@ def logout(token: str = Depends(oauth2_scheme)):
 
 # Пример того что без токена, данная ручка не доступна
 @auth_router.get("/protected-route")
-def protected_route(user_id: str = Depends(decode_access_token)):
-    return {"message": f"Hello, user {user_id}!"}
+async def protected_route():
+    return {"message": "Hello, user"}
